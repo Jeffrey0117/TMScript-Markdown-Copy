@@ -11,6 +11,6 @@
 
 Quickly copy Markdown links for notes (Obsidian, Notion, Markdown docs) without manual editing.
 
-## link
+## Link
 
 [greasyfork](https://greasyfork.org/zh-TW/scripts/546353-copy-selected-text-as-markdown-link)
