@@ -1,18 +1,18 @@
 // ==UserScript==
 // @name         Copy as Markdown (Link + Full Parser)
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Ctrl+右鍵 → 彈出選單，支援 Copy as Markdown Link / Copy as Markdown (完整內容解析)
+// @version      1.1
+// @description  Ctrl+右鍵 → 選單：Copy as MDLink / Copy as Markdown (完整內容解析, highlight.js safe)
 // @match        *://*/*
 // @grant        GM_setClipboard
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
-// @license MIT
 // ==/UserScript==
 
 (function($) {
     'use strict';
 
-    let lastSelection = "";
+    let lastSelectionText = "";
+    let lastSelectionHTML = "";
     let lastLink = null;
 
     // === 建立自訂選單 ===
@@ -27,39 +27,33 @@
         zIndex: 99999
     });
 
-    // 選項: Copy as MDLink
     const btnLink = $('<div>Copy as MDLink</div>').css({cursor: 'pointer', padding: '3px'}).on('click', function() {
         let url, text;
-
         if (lastLink) {
             url = lastLink.href;
             text = lastLink.innerText.trim() || url;
-        } else if (lastSelection) {
+        } else if (lastSelectionText) {
             url = location.href;
-            text = lastSelection;
+            text = lastSelectionText;
         } else {
             url = location.href;
             text = document.title;
         }
 
         let md = `[${text}](${url})`;
-        GM_setClipboard(md);
-        console.log("✅ 已複製 MDLink:\n" + md);
+        GM_setClipboard(md, { type: "text", mimetype: "text/plain" });
+        alert("✅ 已複製 MDLink:\n" + md);
         menu.hide();
     });
 
-    // 選項: Copy as Markdown (parser)
     const btnMD = $('<div>Copy as Markdown</div>').css({cursor: 'pointer', padding: '3px'}).on('click', function() {
-        let selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        let container = document.createElement("div");
-        container.appendChild(selection.getRangeAt(0).cloneContents());
-        let html = container.innerHTML;
-
-        let md = html2md(html);
+        if (!lastSelectionHTML) {
+            alert("⚠️ 沒有選取內容");
+            return;
+        }
+        let md = html2md(lastSelectionHTML);
         GM_setClipboard(md, { type: "text", mimetype: "text/plain" });
-        console.log("✅ 已複製 Markdown:\n\n" + md);
+        alert("✅ 已複製 Markdown:\n\n" + md);
         menu.hide();
     });
 
@@ -68,11 +62,25 @@
 
     // === 事件: Ctrl+右鍵 ===
     $(document).on('contextmenu', function(e) {
-        if (!e.ctrlKey) return; // 沒有 Ctrl → 保留原生右鍵選單
+        if (!e.ctrlKey) return; // 沒按 Ctrl → 原生選單
 
-        lastSelection = window.getSelection().toString().trim();
+        // 暫存選區
+        let sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+            lastSelectionText = sel.toString().trim();
+
+            let container = document.createElement("div");
+            container.appendChild(sel.getRangeAt(0).cloneContents());
+            lastSelectionHTML = container.innerHTML;
+        } else {
+            lastSelectionText = "";
+            lastSelectionHTML = "";
+        }
+
+        // 如果點在 <a>
         lastLink = e.target.closest('a');
 
+        // 顯示自訂選單
         menu.css({top: e.pageY + 'px', left: e.pageX + 'px', display: 'block'});
         e.preventDefault();
     });
@@ -98,6 +106,7 @@
                 let $el = $(this);
                 let tag = this.tagName.toLowerCase();
 
+                // 過濾 hackmd 工具列垃圾
                 if ($el.hasClass("code-toolbar") || tag === "button") return;
 
                 switch(tag) {
@@ -144,6 +153,7 @@
         return md;
     }
 
+    // 判斷程式語言 (highlight.js class)
     function detectLang($code) {
         if (!$code || !$code.attr("class")) return "";
         let cls = $code.attr("class");
