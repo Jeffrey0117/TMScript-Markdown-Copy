@@ -1,4 +1,5 @@
 # Copy as Markdown (Link + Full Parser)
+![](https://storage.meteor.today/image/68ccd3638219d4a0ec75a52a.png)
 
 ## Usage
 
